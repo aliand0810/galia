@@ -1,5 +1,5 @@
 // Service worker Onda Player — met en cache l'application (pas les flux vidéo)
-const CACHE = 'onda-v1';
+const CACHE = 'onda-v3';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './index.html']).catch(() => {})));
   self.skipWaiting();
