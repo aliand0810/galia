@@ -122,7 +122,16 @@ main{min-height:100vh;padding-bottom:60px}
 .badges{position:absolute;top:7px;left:7px;display:flex;gap:4px}
 .badges i{font-style:normal;font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;background:rgba(10,14,19,.8);color:var(--acc)}
 .num{position:absolute;top:7px;right:8px;font-size:11px;color:var(--mut)}
-.favdot{position:absolute;bottom:8px;right:9px;color:var(--acc);font-size:13px}
+.pin{position:absolute;top:6px;right:6px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:rgba(10,14,19,.72);color:#fff;opacity:0;transform:scale(.85);transition:.15s;z-index:2}
+.pin .ic{width:16px;height:16px}
+.card:hover .pin,.card:focus-within .pin,.pin.on{opacity:1;transform:none}
+.pin:hover{background:rgba(10,14,19,.92)}
+.pin.on{color:var(--acc)}
+.pin.on .ic,.btn.pinned .ic,.ib.pinned .ic{fill:currentColor}
+.btn.pinned{color:var(--acc)}
+.ib.pinned{color:var(--acc)}
+.card.wide .num{right:auto;left:8px;top:auto;bottom:6px}
+@media (hover:none){.pin{opacity:.85;transform:none}}
 .pbar{position:absolute;left:8px;right:8px;bottom:8px;height:4px;border-radius:4px;background:rgba(255,255,255,.25);overflow:hidden}
 .pbar i{display:block;height:100%;background:var(--acc)}
 .ct{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#d5dde5}
@@ -205,7 +214,20 @@ main{min-height:100vh;padding-bottom:60px}
 .p-epg .bar i{display:block;height:100%;background:var(--acc)}
 .player:not(.ui) .p-top,.player:not(.ui) .p-epg{opacity:0;pointer-events:none}
 .player:not(.ui){cursor:none}
+.bufpill{align-self:center;font-size:11.5px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.08);color:#b6c1cc;white-space:nowrap;margin-right:4px}
+.bufpill b{font-weight:600}
+.bufpill.ok b{color:var(--acc)}.bufpill.mid b{color:#fbbf24}.bufpill.low b{color:var(--danger)}
+.p-spin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;z-index:2;pointer-events:none;background:rgba(10,14,19,.6);padding:18px 22px;border-radius:16px;font-size:13px;color:#cdd6df}
+.p-spin .spin{margin-bottom:10px}
 .p-msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(10,14,19,.85);padding:14px 20px;border-radius:12px;max-width:80%;text-align:center;z-index:2}
+.p-fail{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;width:min(560px,calc(100% - 32px));max-height:calc(100% - 120px);overflow-y:auto;background:rgba(16,22,30,.97);border:1px solid var(--line);border-radius:18px;padding:22px}
+.p-fail h3{margin:0 0 6px;font-size:18px;font-weight:600}
+.p-fail p{margin:6px 0;color:#c8d2dc;font-size:14px}
+.p-fail .why{font-size:12.5px;color:var(--mut);background:var(--bg);border-radius:10px;padding:8px 12px;margin:10px 0;font-family:ui-monospace,Menlo,monospace;word-break:break-word}
+.p-fail .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.p-fail .acts .btn{padding:9px 16px;font-size:14px}
+.ptest{margin-top:10px;font-size:13.5px}
+.ptest.ok{color:var(--acc)}.ptest.ko{color:var(--danger)}
 .p-msg:empty{display:none}
 .p-list{position:absolute;top:0;right:0;bottom:0;width:min(340px,86vw);background:rgba(10,14,19,.95);backdrop-filter:blur(10px);z-index:3;display:flex;flex-direction:column}
 .p-list header{display:flex;align-items:center;justify-content:space-between;padding:16px}
@@ -249,6 +271,7 @@ main{min-height:100vh;padding-bottom:60px}
   .mbox{border-radius:0;min-height:100%}
   .two{grid-template-columns:1fr}
   .p-actions .lbl{display:none}
+  .bufpill{display:none}
   #toast{bottom:100px}
 }
 </style>
@@ -271,6 +294,8 @@ main{min-height:100vh;padding-bottom:60px}
     <button class="ib" id="pBack" aria-label="Retour"></button>
     <div class="p-title"><b id="pTitle"></b><span id="pSub"></span></div>
     <div class="p-actions">
+      <span class="bufpill" id="pBuf" title="Avance du tampon de lecture"></span>
+      <button class="ib" id="pPin" title="Épingler en favori"></button>
       <button class="ib" id="pNext" title="Épisode suivant"></button>
       <button class="ib" id="pZap" title="Chaînes"></button>
       <button class="ib" id="pTracks" title="Pistes audio, sous-titres, qualité"></button>
@@ -279,7 +304,9 @@ main{min-height:100vh;padding-bottom:60px}
     </div>
   </div>
   <div id="pEpg" class="p-epg"></div>
+  <div id="pSpin" class="p-spin hidden"><div class="spin"></div><span id="pSpinTxt">Mise en mémoire tampon…</span></div>
   <div id="pMsg" class="p-msg"></div>
+  <div id="pFail" class="p-fail hidden"></div>
   <aside id="pList" class="p-list hidden"><header><b>Chaînes</b><button class="ib" id="pListClose"></button></header><div class="items" id="pItems"></div></aside>
   <div id="pMenu" class="p-menu hidden"></div>
 </div>
@@ -340,6 +367,7 @@ const ICONS = {
   next:'<path d="M5 5l10 7-10 7z" fill="currentColor" stroke="none"/><path d="M19 5v14"/>',
   tracks:'<path d="M4 7h16M4 12h10M4 17h13"/>',
   full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  pin:'<path d="M9 3h6l-1 6 4 3v2h-5v6l-1 1-1-1v-6H5v-2l4-3z"/>',
   wave:'<path d="M3 12c2.5-4 5-4 7.5 0s5 4 7.5 0 2.5-2 3-2" stroke-width="2.6"/>'
 };
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
@@ -352,7 +380,14 @@ function toast(t, ms = 2600) { const e = $('#toast'); e.textContent = t; e.class
 function loader(t) { const l = $('#loader'); if (t === false) return l.classList.add('hidden'); $('#loaderTxt').textContent = t; l.classList.remove('hidden'); }
 
 /* ---------- État ---------- */
-const DEF = {type:'xtream', server:'', user:'', pass:'', m3u:'', proxy:'https://corsproxy.io/?url=', proxyMode:'auto', liveFmt:'m3u8', tmdb:'', hideAdult:true, cacheH:12};
+const DEF = {type:'xtream', server:'', user:'', pass:'', m3u:'', proxy:'https://corsproxy.io/?url=', proxyMode:'auto', liveFmt:'m3u8', tmdb:'', hideAdult:true, cacheH:12, bufMode:'equilibre', autoReco:true, proxyKind:''};
+/* Profils de tampon : plus le tampon est grand, plus la lecture résiste aux coupures réseau (au prix d'un léger retard sur le direct) */
+const BUF = {
+  reactif:   {label:'Réactif',           desc:'Démarrage rapide, faible retard sur le direct. Pour une bonne connexion.', hls:{maxBufferLength:15, maxMaxBufferLength:30, liveSyncDurationCount:3, liveMaxLatencyDurationCount:8, backBufferLength:30, maxBufferSize:40e6}, ts:{stash:384, chase:true}, refill:0},
+  equilibre: {label:'Équilibré',         desc:'Bon compromis fluidité / délai. Recommandé.', hls:{maxBufferLength:30, maxMaxBufferLength:90, liveSyncDurationCount:4, liveMaxLatencyDurationCount:14, backBufferLength:60, maxBufferSize:80e6}, ts:{stash:1024, chase:false}, refill:2},
+  fluide:    {label:'Fluidité maximale', desc:'Gros tampon : idéal pour les connexions instables ou les films lourds.', hls:{maxBufferLength:60, maxMaxBufferLength:180, liveSyncDurationCount:6, liveMaxLatencyDurationCount:24, backBufferLength:90, maxBufferSize:160e6}, ts:{stash:3072, chase:false}, refill:5}
+};
+const bufCfg = () => BUF[S.cfg.bufMode] || BUF.equilibre;
 const S = {
   cfg: Object.assign({}, DEF, LS.get('cfg', {})),
   profiles: LS.get('profiles', []),
@@ -374,6 +409,18 @@ function needProxy(url) {
   if (m === 'always') return true;
   return location.protocol === 'https:' && /^http:/i.test(url);
 }
+/* Détecte si le proxy est le « proxy Onda » (Cloudflare Worker fourni) : il réécrit les playlists HLS, gère les redirections et l'en-tête Range */
+async function detectProxy() {
+  if (!S.cfg.proxy) { S.cfg.proxyKind = ''; saveCfg(); return ''; }
+  try {
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(px('onda:ping'), {signal: ctl.signal});
+    const j = await r.json().catch(() => ({}));
+    S.cfg.proxyKind = j && j.onda ? 'onda' : 'generic';
+  } catch { S.cfg.proxyKind = 'generic'; }
+  saveCfg(); return S.cfg.proxyKind;
+}
+const ondaProxy = () => S.cfg.proxyKind === 'onda';
 function px(url) { const p = S.cfg.proxy || ''; if (!p) return url; return p.includes('{url}') ? p.replace('{url}', encodeURIComponent(url)) : p + encodeURIComponent(url); }
 async function getText(url) {
   const tries = needProxy(url) ? [px(url)] : (S.cfg.proxy && S.cfg.proxyMode !== 'never' ? [url, px(url)] : [url]);
@@ -521,10 +568,24 @@ const isFav = it => !!S.pdata.fav[kk(it)];
 const saveP = () => LS.set('p_' + S.pid, S.pdata);
 function toggleFav(it) {
   const k = kk(it);
-  if (S.pdata.fav[k]) { delete S.pdata.fav[k]; toast('Retiré de Ma liste'); }
-  else { S.pdata.fav[k] = {ts: Date.now()}; toast('Ajouté à Ma liste'); }
-  saveP();
+  const on = !S.pdata.fav[k];
+  if (on) { S.pdata.fav[k] = {ts: Date.now()}; toast('📌 Épinglé dans vos favoris'); }
+  else { delete S.pdata.fav[k]; toast('Retiré des favoris'); }
+  saveP(); S._pinSort = null;
+  $$(`.pin[data-pin="${CSS.escape(k)}"]`).forEach(b => b.classList.toggle('on', on));
+  syncPlayerPin();
+  return on;
 }
+const repOf = v => v.vers ? v : (S.g[v.k] || []).find(g => g.vers && g.vers.includes(v)) || v;
+/* Met les éléments épinglés en tête de liste (ordre d'épinglage), sans changer l'ordre du reste */
+function pinFirst(list) {
+  const pinned = [], rest = [];
+  for (const it of list) (isFav(it) ? pinned : rest).push(it);
+  if (!pinned.length) return list;
+  pinned.sort((a, b) => S.pdata.fav[kk(a)].ts - S.pdata.fav[kk(b)].ts);
+  return pinned.concat(rest);
+}
+const pinBtn = (it, cls = 'btn') => `<button class="${cls}${isFav(it) ? ' pinned' : ''}" data-fav>${ic('pin')} ${isFav(it) ? 'Épinglé' : 'Épingler'}</button>`;
 const favList = k => Object.entries(S.pdata.fav).sort((a, b) => b[1].ts - a[1].ts).map(([x]) => S.idx.get(x)).filter(it => it && (!k || it.k === k));
 function selectProfile(id) {
   S.pid = id; LS.set('pid', id);
@@ -583,6 +644,7 @@ function showSetup(err) {
     S.cfg = next;
     if (!configured()) return showSetup('Merci de remplir tous les champs.');
     saveCfg();
+    await detectProxy();
     try { await loadCatalog(true); afterLoad(); }
     catch (er) { showSetup(er.message); }
   };
@@ -621,7 +683,7 @@ function profileForm() {
 }
 
 /* ---------- Coque de l’application ---------- */
-const NAV = [['home', 'Accueil', 'home'], ['live', 'TV en direct', 'tv'], ['vod', 'Films', 'film'], ['series', 'Séries', 'series'], ['fav', 'Ma liste', 'heart']];
+const NAV = [['home', 'Accueil', 'home'], ['live', 'TV en direct', 'tv'], ['vod', 'Films', 'film'], ['series', 'Séries', 'series'], ['fav', 'Favoris', 'pin']];
 function buildShell() {
   $('#top').innerHTML = `<div class="logo" data-nav="home">${LOGO}</div>
     <nav class="tnav">${NAV.map(([v, l]) => `<button data-nav="${v}">${l}</button>`).join('')}</nav>
@@ -630,7 +692,7 @@ function buildShell() {
   $('#avBtn').onclick = () => showProfiles();
   $('#mClose').innerHTML = ic('close');
   $('#pBack').innerHTML = ic('back'); $('#pNext').innerHTML = ic('next'); $('#pZap').innerHTML = ic('list');
-  $('#pTracks').innerHTML = ic('tracks'); $('#pPip').innerHTML = ic('pip'); $('#pFs').innerHTML = ic('full'); $('#pListClose').innerHTML = ic('close');
+  $('#pTracks').innerHTML = ic('tracks'); $('#pPin').innerHTML = ic('pin'); $('#pPip').innerHTML = ic('pip'); $('#pFs').innerHTML = ic('full'); $('#pListClose').innerHTML = ic('close');
   addEventListener('scroll', () => $('#top').classList.toggle('solid', scrollY > 30), {passive: true});
 }
 function nav(v, arg) {
@@ -653,7 +715,8 @@ function card(it, o = {}) {
     <div class="thumb"><span class="ph">${esc(initials(it.title))}</span>${it.img ? `<img loading="lazy" src="${esc(it.img)}" alt="" onerror="this.remove()">` : ''}
     ${badges.length ? `<span class="badges">${badges.map(b => `<i>${b}</i>`).join('')}</span>` : ''}
     ${wide && it.num ? `<span class="num">${it.num}</span>` : ''}
-    ${o.p != null ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(o.p * 100))}%"></i></span>` : (S.idx.size && isFav(it) ? '<span class="favdot">♥</span>' : '')}</div>
+    ${o.p != null ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(o.p * 100))}%"></i></span>` : ''}
+    ${S.idx.size && S.idx.has(kk(it)) ? `<span class="pin${isFav(it) ? ' on' : ''}" data-pin="${esc(kk(it))}" role="button" aria-label="Épingler" title="${isFav(it) ? 'Retirer des favoris' : 'Épingler en favori'}">${ic('pin')}</span>` : ''}</div>
     <span class="ct">${esc(it.title)}</span>${o.sub ? `<span class="cs">${esc(o.sub)}</span>` : ''}</button>`;
 }
 function rowHTML(title, items, o = {}) {
@@ -683,15 +746,16 @@ function renderHome(m) {
   const prog = Object.entries(S.pdata.prog).sort((a, b) => b[1].ts - a[1].ts).slice(0, 20);
   const recentV = sortList(vod, 'recent').slice(0, 24), recentS = sortList(ser, 'recent').slice(0, 24);
   const top = vod.filter(x => x.rating > 0).sort((a, b) => b.rating - a.rating).slice(0, 24);
-  const favs = favList().slice(0, 24);
+  const favLive = favList('live').slice(0, 24), favMedia = favList().filter(x => x.k !== 'live').slice(0, 24);
   const catRows = catsWith('vod').filter(c => c[2] >= 8).slice(0, 5).map(([id, n]) => rowHTML(n, sortList(byCat('vod')[id], 'recent').slice(0, 24), {more: 'vod|' + id})).join('');
   const liveRow = (S.liveRecent = LS.get('lr_' + S.pid, [])).map(id => S.idx.get('live:' + id)).filter(Boolean).slice(0, 16);
   m.innerHTML = (h ? `<section class="hero"><div class="hbg poster" id="hbg" style="background-image:url('${cssu(h.img)}')"></div><div class="hfade"></div>
       <div class="hin"><span class="kicker">À la une</span><h1>${esc(h.title)}</h1><p id="hplot">${esc(catName('vod', h.cat))}</p>
       <div class="hbtn"><button class="btn pri" id="hPlay">${ic('play')} Lecture</button><button class="btn" data-key="${esc(kk(h))}">${ic('info')} Plus d’infos</button></div></div></section>` : '<div style="height:90px"></div>')
     + rowHTML('Reprendre', prog, {map: ([key, e]) => card({k: e.meta.type === 'ep' ? 'series' : 'vod', id: e.meta.type === 'ep' ? e.meta.sid : e.meta.id, title: e.meta.title, img: e.meta.img}, {resume: key, p: e.t / e.d, sub: e.meta.sub || (mmss(e.d - e.t) + ' restantes')})})
+    + rowHTML('📌 Chaînes épinglées', favLive, {more: 'live|fav'})
+    + rowHTML('📌 Films & séries épinglés', favMedia, {more: 'fav'})
     + rowHTML('Chaînes regardées récemment', liveRow, {more: 'live'})
-    + rowHTML('Ma liste', favs, {more: 'fav'})
     + rowHTML('Films ajoutés récemment', recentV, {more: 'vod'})
     + rowHTML('Séries ajoutées récemment', recentS, {more: 'series'})
     + rowHTML('Les mieux notés', top)
@@ -726,15 +790,16 @@ function renderLive(m) {
   const st = S.ls;
   const cats = catsWith('live');
   const favs = favList('live');
-  const title = st.cat === 'all' ? 'Toutes les chaînes' : st.cat === 'fav' ? 'Chaînes favorites' : catName('live', st.cat);
-  m.innerHTML = `<div class="page live"><aside class="cats">${[['all', 'Toutes les chaînes', L('live').length], ['fav', '♥ Favoris', favs.length], ...cats].map(([id, n, c]) => `<button class="cat${id === st.cat ? ' on' : ''}" data-lcat="${esc(id)}"><span>${esc(n)}</span><small>${fmtN(c)}</small></button>`).join('')}</aside>
+  const title = st.cat === 'all' ? 'Toutes les chaînes' : st.cat === 'fav' ? 'Chaînes épinglées' : catName('live', st.cat);
+  m.innerHTML = `<div class="page live"><aside class="cats">${[['all', 'Toutes les chaînes', L('live').length], ['fav', '📌 Épinglées', favs.length], ...cats].map(([id, n, c]) => `<button class="cat${id === st.cat ? ' on' : ''}" data-lcat="${esc(id)}"><span>${esc(n)}</span><small>${fmtN(c)}</small></button>`).join('')}</aside>
     <section><div class="lhead"><h1>${esc(title)}</h1><input id="lFilter" placeholder="Filtrer les chaînes…" value="${esc(st.f)}"></div><div class="grid wide" id="lgrid"></div></section></div>`;
-  const base = st.cat === 'all' ? L('live') : st.cat === 'fav' ? favs : (byCat('live')[st.cat] || []);
+  const base = st.cat === 'fav' ? favs : pinFirst(st.cat === 'all' ? L('live') : (byCat('live')[st.cat] || []));
   const draw = () => {
     const q = bkey(st.f);
     const list = q ? base.filter(x => x.bk.includes(q)) : base;
     S.liveCtx = list;
     pager($('#lgrid'), list, x => card(x));
+    if (!list.length && st.cat === 'fav') $('#lgrid').innerHTML = '<div class="empty">Aucune chaîne épinglée. Survolez une chaîne et touchez l’épingle pour la garder ici, en tête de liste et dans le zapping.</div>';
   };
   draw();
   $('#lFilter').oninput = debounce(e => { st.f = e.target.value; draw(); }, 200);
@@ -754,11 +819,11 @@ function renderSearch(m) {
   q.oninput = debounce(run, 220); run();
 }
 
-/* ---------- Ma liste ---------- */
+/* ---------- Favoris (épinglés) ---------- */
 function renderFav(m) {
   const all = favList();
-  m.innerHTML = `<div class="page"><div class="ghead"><h1>Ma liste</h1></div>${all.length ? '' : '<div class="empty">Ajoutez des films, séries ou chaînes avec « + Ma liste » pour les retrouver ici.</div>'}</div>`;
-  if (all.length) m.insertAdjacentHTML('beforeend', `<div style="margin-top:-20px">${rowHTML('Films', favList('vod'))}${rowHTML('Séries', favList('series'))}${rowHTML('Chaînes', favList('live'))}</div>`);
+  m.innerHTML = `<div class="page"><div class="ghead"><h1>Favoris</h1></div>${all.length ? '' : '<div class="empty">Touchez l’épingle 📌 sur une chaîne, un film ou une série (ou le bouton « Épingler » dans sa fiche / pendant la lecture) pour le retrouver ici.</div>'}</div>`;
+  if (all.length) m.insertAdjacentHTML('beforeend', `<div style="margin-top:-20px">${rowHTML('Chaînes', favList('live'))}${rowHTML('Films', favList('vod'))}${rowHTML('Séries', favList('series'))}</div>`);
 }
 
 /* ---------- Paramètres ---------- */
@@ -775,7 +840,12 @@ function renderSettings(m) {
     <div data-for="m3u"><label>URL M3U<input name="m3u" value="${esc(c.m3u)}"></label></div>
     <div class="two"><label>Format des chaînes (Xtream)<select name="liveFmt"><option value="m3u8"${c.liveFmt === 'm3u8' ? ' selected' : ''}>HLS (.m3u8)</option><option value="ts"${c.liveFmt === 'ts' ? ' selected' : ''}>MPEG-TS (.ts)</option></select></label>
     <label>Durée du cache<select name="cacheH">${[[1, '1 heure'], [6, '6 heures'], [12, '12 heures'], [24, '24 heures'], [72, '3 jours']].map(([v, l]) => `<option value="${v}"${+c.cacheH === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label></div>
-    <label>Proxy CORS<input name="proxy" value="${esc(c.proxy)}"></label>
+    <label>Tampon de lecture<select name="bufMode">${Object.entries(BUF).map(([v, b]) => `<option value="${v}"${(c.bufMode || 'equilibre') === v ? ' selected' : ''}>${b.label}</option>`).join('')}</select></label>
+    <div class="hint" id="bufDesc">${esc(bufCfg().desc)}</div>
+    <label class="chk" style="margin-top:12px"><input type="checkbox" name="autoReco"${c.autoReco !== false ? ' checked' : ''}> Reconnexion automatique si le flux se fige ou se coupe</label>
+    <label id="proxyGuide">Proxy<input name="proxy" value="${esc(c.proxy)}" placeholder="https://onda-proxy.VOTRE-COMPTE.workers.dev/?k=VOTRE-CLE&url="></label>
+    <div class="hint">Type détecté : <b>${c.proxyKind === 'onda' ? 'Proxy Onda ✓ (recommandé)' : c.proxy ? 'proxy générique (limité pour la vidéo)' : 'aucun'}</b>. Le proxy Onda personnel (Cloudflare, gratuit) règle la plupart des « Lecture impossible » : https/http, CORS, redirections et playlists HLS.</div>
+    <div class="actions" style="margin-top:10px"><button class="btn sm" type="button" id="pxTest">Tester le proxy</button></div><div id="pxRes" class="ptest"></div>
     <label>Utilisation du proxy<select name="proxyMode">${[['auto', 'Automatique (si http sur page https ou en cas d’échec)'], ['always', 'Toujours'], ['never', 'Jamais']].map(([v, l]) => `<option value="${v}"${c.proxyMode === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Clé API TMDB (facultatif)<input name="tmdb" value="${esc(c.tmdb)}" placeholder="Clé v3 ou jeton v4"></label>
     <div class="hint">Ajoute affiches larges, résumés et notes quand le serveur n’en fournit pas.</div>
@@ -783,21 +853,35 @@ function renderSettings(m) {
     <div class="actions"><button class="btn acc" type="submit">Enregistrer</button></div></form>
   <h2>Profils</h2><div class="box"><div class="plist">${S.profiles.map(p => `<div class="prow" data-prow="${p.id}"><span class="av sm" style="background:${p.color}">${esc((p.name[0] || '?').toUpperCase())}</span><input value="${esc(p.name)}" data-pname maxlength="20"><label class="chk" style="margin:0"><input type="checkbox" data-pkids${p.kids ? ' checked' : ''}> Enfant</label>${S.profiles.length > 1 ? `<button class="ib" data-pdel title="Supprimer">${ic('close')}</button>` : ''}</div>`).join('')}</div>
     <div class="actions"><button class="btn" id="pAdd">+ Ajouter un profil</button></div></div>
-  <h2>Données</h2><div class="box"><p class="mut" style="margin:0">Profils, Ma liste et progression de lecture sont stockés sur cet appareil.</p>
+  <h2>Données</h2><div class="box"><p class="mut" style="margin:0">Profils, favoris épinglés et progression de lecture sont stockés sur cet appareil.</p>
     <div class="actions"><button class="btn" id="dExp">Exporter</button><label class="btn" style="margin:0;color:var(--tx)">Importer<input type="file" accept=".json" id="dImp" hidden></label><button class="btn" id="dCache">Vider le cache</button><button class="btn danger" id="dOut">Déconnecter la source</button></div></div>
   <p class="mut" style="font-size:12px;margin-top:30px">Onda est uniquement un lecteur et ne fournit aucun contenu. N’utilisez que des sources auxquelles vous avez légalement accès.</p></div>`;
 
   let type = c.type;
   const sync = () => { $$('#seg2 button').forEach(b => b.classList.toggle('on', b.dataset.t === type)); $$('#sForm [data-for]').forEach(d => d.classList.toggle('hidden', d.dataset.for !== type)); };
+  $('#pxTest').onclick = async () => {
+    const res = $('#pxRes'); const prev = S.cfg.proxy, prevKind = S.cfg.proxyKind;
+    S.cfg.proxy = $('input[name=proxy]').value.trim(); res.className = 'ptest'; res.textContent = 'Test en cours…';
+    const kind = await detectProxy();
+    let msg = kind === 'onda' ? '✓ Proxy Onda détecté.' : kind === 'generic' ? 'Proxy générique (ne réécrit pas les playlists HLS).' : 'Aucun proxy.';
+    if (kind && S.cfg.type === 'xtream' && S.cfg.server) {
+      const r = await probe(px(srv() + '/player_api.php?username=' + encodeURIComponent(S.cfg.user) + '&password=' + encodeURIComponent(S.cfg.pass)), {noRange: true});
+      msg += r.ok && /user_info/.test(r.head || '') ? ' Connexion au serveur IPTV via le proxy : OK.' : ' Le serveur IPTV ne répond pas via ce proxy' + (r.status ? ' (HTTP ' + r.status + ')' : '') + (kind === 'onda' && r.status === 403 ? ' — vérifiez la clé k=…' : '') + '.';
+      res.className = 'ptest ' + (r.ok ? 'ok' : 'ko');
+    } else res.className = 'ptest ' + (kind === 'onda' ? 'ok' : 'ko');
+    res.textContent = msg;
+    if (S.cfg.proxy !== prev) { S.cfg.proxy = prev; S.cfg.proxyKind = prevKind; saveCfg(); res.textContent += ' (Cliquez sur Enregistrer pour l’utiliser.)'; }
+  };
+  $('select[name=bufMode]').onchange = e => ($('#bufDesc').textContent = BUF[e.target.value].desc);
   sync(); $('#seg2').onclick = e => { const b = e.target.closest('[data-t]'); if (b) { type = b.dataset.t; sync(); } };
   $('#sRefresh').onclick = async () => { try { await loadCatalog(true); toast('Catalogue actualisé'); renderSettings(m); } catch (e) { toast(e.message, 4000); } };
   $('#sForm').onsubmit = async e => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
     const before = srcHash();
-    Object.assign(S.cfg, {type, server: (f.server || '').trim(), user: (f.user || '').trim(), pass: f.pass || '', m3u: (f.m3u || '').trim(), liveFmt: f.liveFmt, cacheH: +f.cacheH, proxy: f.proxy.trim(), proxyMode: f.proxyMode, tmdb: f.tmdb.trim(), hideAdult: !!f.hideAdult});
+    Object.assign(S.cfg, {type, server: (f.server || '').trim(), user: (f.user || '').trim(), pass: f.pass || '', m3u: (f.m3u || '').trim(), liveFmt: f.liveFmt, cacheH: +f.cacheH, proxy: f.proxy.trim(), proxyMode: f.proxyMode, tmdb: f.tmdb.trim(), hideAdult: !!f.hideAdult, bufMode: f.bufMode, autoReco: !!f.autoReco});
     if (S.cfg.type === 'xtream' && S.cfg.server && !/^https?:\/\//i.test(S.cfg.server)) S.cfg.server = 'http://' + S.cfg.server;
-    saveCfg(); S._bc = {};
+    saveCfg(); S._bc = {}; await detectProxy();
     if (srcHash() !== before) { try { await loadCatalog(true); toast('Nouvelle source chargée'); } catch (er) { return toast(er.message, 4000); } }
     else toast('Paramètres enregistrés');
     renderSettings(m);
@@ -829,7 +913,7 @@ function renderSettings(m) {
   };
   $('#dCache').onclick = async () => { await IDB.clear(); toast('Cache vidé'); try { await loadCatalog(true); } catch (er) { toast(er.message, 4000); } };
   $('#dOut').onclick = async () => {
-    if (!confirm('Déconnecter cette source ? Vos profils et Ma liste sont conservés.')) return;
+    if (!confirm('Déconnecter cette source ? Vos profils et favoris sont conservés.')) return;
     Object.assign(S.cfg, {server: '', user: '', pass: '', m3u: ''}); saveCfg(); await IDB.clear(); S.raw = null; showSetup();
   };
 }
@@ -882,7 +966,7 @@ async function openVod(it) {
     modal(`<div class="mhero" style="background-image:url('${cssu(bd)}')"><div class="mfade"></div><div class="mhin"><h2>${esc(rep.title)}</h2>
       <div class="meta">${[year, info.duration, info.genre, rating ? '★ ' + rating.toFixed(1) : '', catName('vod', rep.cat)].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('')}</div>
       <div class="hbtn"><button class="btn pri" data-play="0">${ic('play')} ${pr ? 'Reprendre · ' + mmss(pr.t) : 'Lecture'}</button>${pr ? `<button class="btn" data-restart>Depuis le début</button>` : ''}
-      <button class="btn" data-fav>${isFav(rep) ? '♥ Dans ma liste' : '+ Ma liste'}</button>
+      ${pinBtn(rep)}
       ${info.youtube_trailer ? `<a class="btn" target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=${encodeURIComponent(info.youtube_trailer)}">Bande-annonce</a>` : ''}</div></div></div>
       <div class="mcontent">${plot ? `<p class="plot">${esc(plot)}</p>` : (loading ? '<p class="mut">Chargement des informations…</p>' : '')}
       ${info.director ? `<div class="credits"><b>Réalisation :</b> ${esc(info.director)}</div>` : ''}
@@ -938,7 +1022,7 @@ async function openSeries(it) {
     modal(`<div class="mhero" style="background-image:url('${cssu(bd)}')"><div class="mfade"></div><div class="mhin"><h2>${esc(it.title)}</h2>
       <div class="meta">${[it.year || tm?.year, info.genre, rating ? '★ ' + rating.toFixed(1) : '', keys.length ? keys.length + ' saison' + (keys.length > 1 ? 's' : '') : '', catName('series', it.cat)].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('')}</div>
       <div class="hbtn">${data && keys.length ? `<button class="btn pri" data-main>${ic('play')} ${le ? 'Reprendre ' + esc(le[1].meta.sub) : 'Lecture S' + keys[0] + ' E' + data.seasons[keys[0]][0].e}</button>` : ''}
-      <button class="btn" data-fav>${isFav(it) ? '♥ Dans ma liste' : '+ Ma liste'}</button></div></div></div>
+      ${pinBtn(it)}</div></div></div>
       <div class="mcontent">${plot ? `<p class="plot">${esc(plot)}</p>` : ''}
       ${info.cast ? `<div class="credits"><b>Avec :</b> ${esc(info.cast)}</div>` : ''}
       ${!data ? '<p class="mut">Chargement des épisodes…</p>' : !keys.length ? '<p class="mut">Aucun épisode disponible.</p>' : `
@@ -973,53 +1057,256 @@ const vodCands = m => m.url ? [m.url] : [`${srv()}/movie/${cred()}/${m.id}.${m.e
 const epCands = m => m.url ? [m.url] : [`${srv()}/series/${cred()}/${m.id}.${m.ext || 'mp4'}`];
 
 function stopEngines() {
-  const v = vid(); v.onerror = null;
+  const v = vid(); v.onerror = null; stopWatchdog(); clearTimeout(S.startT);
   try { hls && hls.destroy(); } catch {} hls = null;
   try { if (mts) { mts.pause(); mts.unload(); mts.detachMediaElement(); mts.destroy(); } } catch {} mts = null;
   v.removeAttribute('src'); try { v.load(); } catch {}
 }
-function attach(url, live, fail) {
-  stopEngines();
+function attach(url, live, fail, viaProxy) {
+  stopEngines(); $('#pFail').classList.add('hidden');
+  const useP = viaProxy != null ? viaProxy : needProxy(url);
+  S.lastErr = null;
   const v = vid(); let failed = false;
-  const onFail = () => { if (!failed) { failed = true; fail(); } };
+  const onFail = () => {
+    if (failed) return;
+    // Une coupure en cours de lecture : on tente de reprendre au même endroit avant de changer de format
+    if (WD.started && S.cfg.autoReco !== false && WD.retries < 5) { recover('erreur'); return; }
+    failed = true; fail();
+  };
+  const B = bufCfg(); let net = 0;
+  WD.started = false; WD.retries = 0; WD.refill = false;
+  S.cur = {url, live, fail, viaProxy: useP};
+  // Si rien ne démarre dans le délai, on passe à l'essai suivant (autre format / proxy) au lieu de rester bloqué
+  const aid = (S.attachId = (S.attachId || 0) + 1);
+  clearTimeout(S.startT);
+  S.startT = setTimeout(() => { if (S.attachId === aid && S.P && !WD.started) { S.lastErr = S.lastErr || {kind: 'timeout'}; failed || (failed = true, fail()); } }, live ? 12000 : 20000);
   const isM3U8 = /\.m3u8(\?|$)/i.test(url), isTS = /\.ts(\?|$)/i.test(url);
   const isFile = /\.(mp4|mkv|webm|m4v|avi|mov)(\?|$)/i.test(url);
-  const direct = needProxy(url) ? px(url) : url;
+  const direct = useP ? px(url) : url;
   if (isM3U8 && window.Hls && Hls.isSupported()) {
-    hls = new Hls({enableWorker: true, lowLatencyMode: false, backBufferLength: 60, xhrSetup: (xhr, u) => { if (needProxy(u)) xhr.open('GET', px(u), true); }});
-    hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) { if (d.type === Hls.ErrorTypes.MEDIA_ERROR) { try { hls.recoverMediaError(); return; } catch {} } onFail(); } });
+    hls = new Hls(Object.assign({
+      enableWorker: true, lowLatencyMode: false, capLevelToPlayerSize: true, abrBandWidthFactor: 0.8, abrBandWidthUpFactor: 0.6,
+      maxBufferHole: 0.5, nudgeOffset: 0.2, nudgeMaxRetry: 8, highBufferWatchdogPeriod: 2, startFragPrefetch: true,
+      manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 3, fragLoadingMaxRetry: 6, fragLoadingRetryDelay: 600, fragLoadingMaxRetryTimeout: 8000,
+      // Proxy Onda : la playlist est réécrite côté proxy, rien à faire ici. Proxy générique : on fait passer chaque requête par le proxy.
+      xhrSetup: (xhr, u) => { if (useP && !ondaProxy() && !u.startsWith(S.cfg.proxy.split('{url}')[0])) xhr.open('GET', px(u), true); }
+    }, B.hls));
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      if (!d.fatal) return;
+      if (d.type === Hls.ErrorTypes.MEDIA_ERROR) { try { hls.recoverMediaError(); return; } catch {} }
+      if (d.type === Hls.ErrorTypes.NETWORK_ERROR && WD.started && net < 3) { net++; pMsg('Connexion instable, nouvelle tentative…'); setTimeout(() => { try { hls && hls.startLoad(); } catch {} }, 800 * net); return; }
+      S.lastErr = {kind: 'hls', type: d.type, details: d.details, code: d.response && d.response.code};
+      onFail();
+    });
+    hls.on(Hls.Events.FRAG_BUFFERED, () => { net = 0; });
     hls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
-    hls.loadSource(url); hls.attachMedia(v);
+    hls.loadSource(useP && ondaProxy() ? px(url) : url); hls.attachMedia(v);
   } else if (isM3U8 && v.canPlayType('application/vnd.apple.mpegurl')) {
-    v.onerror = onFail; v.src = direct; v.play().catch(() => {});
+    v.onerror = () => { S.lastErr = {kind: 'media', code: v.error && v.error.code}; onFail(); }; v.src = direct; v.play().catch(() => {});
   } else if ((isTS || (live && !isFile && !isM3U8)) && window.mpegts && mpegts.isSupported()) {
-    mts = mpegts.createPlayer({type: 'mpegts', isLive: live, url: direct}, {enableWorker: true, liveBufferLatencyChasing: live, lazyLoad: !live, autoCleanupSourceBuffer: true});
-    mts.on(mpegts.Events.ERROR, onFail);
+    mts = mpegts.createPlayer({type: 'mpegts', isLive: live, url: direct}, {
+      enableWorker: true, enableStashBuffer: true, stashInitialSize: B.ts.stash * 1024,
+      liveBufferLatencyChasing: live && B.ts.chase, liveBufferLatencyMaxLatency: 4, liveBufferLatencyMinRemain: 1,
+      lazyLoad: !live, lazyLoadMaxDuration: 180, lazyLoadRecoverDuration: 60, seekType: 'range', reuseRedirectedURL: true,
+      autoCleanupSourceBuffer: true, autoCleanupMaxBackwardDuration: 90, autoCleanupMinBackwardDuration: 45
+    });
+    mts.on(mpegts.Events.ERROR, (type, detail, info) => { S.lastErr = {kind: 'ts', type, details: detail, code: info && info.code}; onFail(); });
     mts.attachMediaElement(v); mts.load();
     const p = mts.play(); p && p.catch && p.catch(() => {});
   } else {
-    v.onerror = onFail; v.src = direct; v.play().catch(() => {});
+    v.onerror = () => { S.lastErr = {kind: 'media', code: v.error && v.error.code}; onFail(); }; v.preload = 'auto'; v.src = direct; v.play().catch(() => {});
   }
+  startWatchdog();
+}
+
+/* ---------- Tampon & chien de garde anti-blocage ----------
+   Toutes les secondes : mesure le tampon disponible, saute les petits trous,
+   relance une image figée, et reconnecte le flux si la lecture reste bloquée. */
+const WD = {t: null, lastT: -1, stallSince: 0, retries: 0, started: false, refill: false, refillSince: 0, spinT: null};
+function bufAhead() {
+  const v = vid(), b = v.buffered, t = v.currentTime;
+  for (let i = 0; i < b.length; i++) if (b.start(i) <= t + 0.3 && b.end(i) >= t) return Math.max(0, b.end(i) - t);
+  return 0;
+}
+function nextRange(t) { const b = vid().buffered; for (let i = 0; i < b.length; i++) if (b.start(i) > t) return b.start(i); return null; }
+function startWatchdog() { stopWatchdog(); WD.lastT = -1; WD.stallSince = 0; WD.t = setInterval(wdTick, 1000); }
+function stopWatchdog() { clearInterval(WD.t); WD.t = null; clearTimeout(WD.spinT); spin(false); }
+function spin(on, txt) {
+  clearTimeout(WD.spinT);
+  if (!on) return $('#pSpin').classList.add('hidden');
+  WD.spinT = setTimeout(() => { $('#pSpinTxt').textContent = txt || 'Mise en mémoire tampon…'; $('#pSpin').classList.remove('hidden'); }, 450);
+}
+function updateBufUI() {
+  const el = $('#pBuf'); if (!S.P) return;
+  const a = bufAhead(), target = Math.max(bufCfg().refill, 2);
+  el.className = 'bufpill ' + (a >= target * 2 ? 'ok' : a >= target ? 'mid' : 'low');
+  el.innerHTML = `Tampon <b>${a >= 100 ? Math.round(a) : a.toFixed(1)} s</b> · ${esc(bufCfg().label)}`;
+}
+function wdTick() {
+  const v = vid(); if (!S.P) return stopWatchdog();
+  updateBufUI();
+  const B = bufCfg(), a = bufAhead();
+  // Remplissage du tampon après une coupure : on attend d'avoir assez d'avance avant de relancer (évite les micro-saccades)
+  if (WD.refill) {
+    $('#pSpinTxt').textContent = `Mise en mémoire tampon… ${a.toFixed(1)} / ${B.refill} s`;
+    if (a >= B.refill || Date.now() - WD.refillSince > 12000) { WD.refill = false; spin(false); v.play().catch(() => {}); }
+    return;
+  }
+  if (v.paused || v.seeking || !WD.started) { WD.stallSince = 0; WD.lastT = v.currentTime; return; }
+  const t = v.currentTime;
+  if (Math.abs(t - WD.lastT) > 0.05) { WD.lastT = t; WD.stallSince = 0; if (WD.retries && a > 3) WD.retries = 0; return; }
+  if (!WD.stallSince) WD.stallSince = Date.now();
+  const s = (Date.now() - WD.stallSince) / 1000;
+  const gap = nextRange(t);
+  if (gap != null && gap - t < 3) { try { v.currentTime = gap + 0.1; } catch {} return; }   // saut d'un trou dans le tampon
+  if (s >= 3 && a > 1) { v.play().catch(() => {}); try { v.currentTime = t + 0.15; } catch {} return; } // image figée alors que les données sont là
+  if (s >= (S.P.live ? 7 : 10)) recover('blocage');
+}
+function recover(why) {
+  if (!S.P || S.cfg.autoReco === false || !S.cur) return;
+  const v = vid();
+  WD.stallSince = Date.now(); WD.retries++;
+  if (WD.retries > 5) { pMsg('Le flux reste instable. Essayez « Fluidité maximale » (bouton Pistes), une autre version ou l’autre format.'); return; }
+  spin(true, 'Reconnexion au flux…');
+  if (hls && WD.retries <= 2) { try { WD.retries === 1 ? hls.startLoad(S.P.live ? -1 : v.currentTime) : hls.recoverMediaError(); v.play().catch(() => {}); return; } catch {} }
+  reattach();
+}
+function reattach() {
+  if (!S.cur) return;
+  const v = vid(), at = S.cur.live ? 0 : v.currentTime, r = WD.retries, {url, live, fail, viaProxy} = S.cur;
+  attach(url, live, fail, viaProxy);
+  WD.retries = r; WD.started = true;
+  if (at > 1) v.addEventListener('loadedmetadata', () => { try { v.currentTime = at; } catch {} }, {once: true});
+}
+function setBufMode(m) {
+  S.cfg.bufMode = m; saveCfg(); toast('Tampon : ' + BUF[m].label);
+  if (S.P && S.cur) { WD.retries = 0; reattach(); WD.started = false; }
 }
 function startPlayback(cands, live, at) {
+  // Ordre d'essai : chaque format en direct, puis (si un proxy est configuré) chaque format via le proxy
+  const tries = cands.map(u => ({u, p: needProxy(u)}));
+  if (S.cfg.proxy && S.cfg.proxyMode === 'auto') cands.forEach(u => { if (!needProxy(u)) tries.push({u, p: true}); });
   let i = 0;
   const go = () => {
     if (!S.P) return;
-    if (i >= cands.length) { pMsg('Lecture impossible. Essayez l’autre format (Paramètres → Format des chaînes) ou activez le proxy.'); return; }
-    const url = cands[i++];
-    pMsg(i > 1 ? 'Nouvel essai…' : '');
-    attach(url, live, go);
-    vid().addEventListener('playing', () => pMsg(''), {once: true});
+    if (i >= tries.length) { pMsg(''); spin(false); diagnose(cands, live); return; }
+    const t = tries[i++];
+    pMsg(i > 1 ? (t.p ? 'Nouvel essai via le proxy…' : 'Nouvel essai dans un autre format…') : '');
+    attach(t.u, live, go, t.p);
     if (at) vid().addEventListener('loadedmetadata', () => { try { vid().currentTime = at; toast('Reprise à ' + mmss(at)); } catch {} }, {once: true});
   };
   go();
 }
 function pMsg(t) { $('#pMsg').textContent = t; }
 
+/* ---------- Diagnostic d'échec de lecture ----------
+   Teste le lien pour identifier la vraie cause et proposer la bonne solution. */
+async function probe(u, opts = {}) {
+  const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 7000);
+  try {
+    const r = await fetch(u, {headers: opts.noRange ? {} : {Range: 'bytes=0-2047'}, signal: ctl.signal, mode: opts.mode || 'cors'});
+    if (opts.mode === 'no-cors') return {ok: true, opaque: true};
+    const ct = r.headers.get('content-type') || '';
+    let head = ''; try { head = r.status < 400 ? (await r.text()).slice(0, 300) : ''; } catch {}
+    return {ok: r.ok, status: r.status, ct, head};
+  } catch (e) { return {ok: false, net: true, aborted: e.name === 'AbortError'}; }
+  finally { clearTimeout(tm); }
+}
+async function diagnose(cands, live) {
+  const box = $('#pFail'), url = cands[0];
+  box.innerHTML = '<h3>Analyse du problème…</h3><p>Je teste le lien pour trouver la cause.</p>'; box.classList.remove('hidden');
+  const https = location.protocol === 'https:', http = /^http:/i.test(url), mixed = https && http;
+  const isFile = /\.(mkv|avi|mp4|m4v|mov)(\?|$)/i.test(url);
+  const le = S.lastErr || {};
+  const ui = S.raw && S.raw.info && S.raw.info.user_info;
+  let cause = '', expl = '', fix = [], tech = [];
+  tech.push('Erreur lecteur : ' + [le.kind, le.type, le.details, le.code].filter(x => x != null && x !== '').join(' / '));
+
+  // 1) Abonnement
+  if (ui && ui.exp_date && +ui.exp_date * 1000 < Date.now()) { cause = 'Abonnement expiré'; expl = 'Le serveur indique que l’abonnement a expiré le ' + new Date(ui.exp_date * 1000).toLocaleDateString('fr-FR') + '.'; }
+  else if (ui && +ui.max_connections > 0 && +ui.active_cons >= +ui.max_connections) { cause = 'Trop de connexions simultanées'; expl = `Le compte est déjà utilisé sur ${ui.active_cons} appareil(s) sur ${ui.max_connections} autorisé(s). Fermez la lecture sur un autre appareil, puis réessayez.`; fix.push('retry'); }
+
+  // 2) Format vidéo non supporté par le navigateur (cas fréquent des films MKV / HEVC / son AC3-DTS)
+  if (!cause && le.kind === 'media' && (le.code === 3 || le.code === 4) && !live) {
+    const r = await probe(S.cur && S.cur.viaProxy ? px(url) : url);
+    if (r.ok || r.opaque || r.status === 206) { cause = 'Format vidéo non lisible par le navigateur'; expl = 'Le fichier est bien accessible, mais son codec (souvent MKV en HEVC/x265, ou son en AC3/DTS) n’est pas pris en charge par ce navigateur. Ouvrez-le dans VLC : la lecture y sera parfaite.'; fix.push('vlc', 'other'); }
+  }
+
+  // 3) Tests réseau
+  if (!cause) {
+    let d = null;
+    if (!mixed) { d = await probe(url); tech.push('Direct : ' + (d.net ? (d.aborted ? 'délai dépassé' : 'bloqué (CORS ou injoignable)') : 'HTTP ' + d.status)); }
+    let pr = null;
+    if (S.cfg.proxy) { pr = await probe(px(url)); tech.push('Proxy (' + (ondaProxy() ? 'Onda' : 'générique') + ') : ' + (pr.net ? (pr.aborted ? 'délai dépassé' : 'injoignable') : 'HTTP ' + pr.status)); }
+    const st = (pr && !pr.net ? pr.status : null) || (d && !d.net ? d.status : null);
+    if (mixed && !S.cfg.proxy) { cause = 'Sécurité du navigateur (page https, serveur http)'; expl = 'L’app est servie en https (GitHub Pages) alors que votre serveur IPTV est en http : le navigateur bloque la vidéo. Il faut un proxy https.'; fix.push('proxy'); }
+    else if (st === 401 || st === 403) { cause = 'Accès refusé par le serveur IPTV (' + st + ')'; expl = ondaProxy() ? 'Le serveur refuse la connexion : abonnement suspendu, limite de connexions atteinte, ou adresse IP du proxy bloquée par le fournisseur.' : 'Le serveur (ou le proxy public) refuse la connexion. Les proxys publics gratuits sont souvent bloqués par les fournisseurs IPTV ou limités pour la vidéo : installez le proxy Onda personnel.'; fix.push(ondaProxy() ? 'retry' : 'proxy', 'vlc'); }
+    else if (st === 404 || st === 410) { cause = 'Contenu introuvable (' + st + ')'; expl = 'Le serveur ne trouve pas ce flux : la chaîne ou le film a été retiré, ou le catalogue n’est plus à jour.'; fix.push('refresh', 'other'); }
+    else if (st === 429) { cause = 'Trop de requêtes (429)'; expl = 'Le proxy ou le serveur limite le nombre de requêtes. Le proxy public partagé en est souvent la cause.'; fix.push('proxy', 'retry'); }
+    else if (st >= 500) { cause = 'Serveur IPTV en difficulté (' + st + ')'; expl = 'Le serveur répond par une erreur interne : il est probablement surchargé ou en maintenance. Réessayez dans quelques minutes.'; fix.push('retry', 'other'); }
+    else if (d && d.net && !mixed && (!pr || pr.net)) {
+      const nc = await probe(url, {mode: 'no-cors', noRange: true});
+      if (nc.ok) { cause = 'Le serveur bloque la lecture dans un navigateur (CORS)'; expl = 'Le serveur est joignable mais n’autorise pas les pages web à lire ses flux.' + (S.cfg.proxy ? ' Le proxy actuel ne répond pas correctement.' : '') + ' La solution : le proxy Onda personnel.'; fix.push('proxy', 'vlc'); }
+      else { cause = 'Serveur injoignable'; expl = 'Impossible de joindre le serveur IPTV : vérifiez votre connexion internet et l’adresse du serveur.'; fix.push('retry'); }
+    }
+    else if (pr && pr.net) { cause = 'Le proxy ne répond pas'; expl = 'Le proxy configuré est injoignable ou refuse ce type de contenu. Les proxys publics gratuits sont limités (débit, vidéo, domaines) : installez le proxy Onda personnel.'; fix.push('proxy'); }
+    else if (st && st < 400) {
+      if (/\.m3u8/i.test(url) && S.cfg.proxy && !ondaProxy() && (mixed || S.cur?.viaProxy)) { cause = 'Playlist HLS incompatible avec un proxy générique'; expl = 'Le flux répond, mais un proxy générique ne réécrit pas les adresses internes de la playlist (.m3u8), ce qui casse la lecture. Le proxy Onda corrige exactement ce point. En attendant, essayez le format MPEG-TS.'; fix.push('proxy', 'other'); }
+      else if (le.kind === 'media' || (le.details || '').toString().match(/codec|Unsupported|incompatible/i)) { cause = 'Format vidéo non lisible par le navigateur'; expl = 'Le flux est accessible mais encodé dans un format que le navigateur ne sait pas décoder. Ouvrez-le dans VLC.'; fix.push('vlc', 'other'); }
+      else { cause = 'Flux accessible mais illisible ici'; expl = 'Le serveur répond correctement, mais la lecture échoue dans le navigateur (format ou flux instable). Essayez l’autre format ou VLC.'; fix.push('other', 'vlc', 'retry'); }
+    }
+  }
+  if (!cause) { cause = 'Lecture impossible'; expl = 'La cause exacte n’a pas pu être déterminée.'; fix.push('retry', 'other', 'vlc', 'proxy'); }
+  if (!S.P) return;
+  const canOther = live && S.cfg.type === 'xtream' && !(S.P.item && S.P.item.url);
+  const acts = [...new Set(fix.concat('vlc', 'copy'))].filter(a => a !== 'other' || canOther).map(a => ({
+    retry: '<button class="btn pri" data-fx="retry">Réessayer</button>',
+    other: `<button class="btn" data-fx="other">Passer en ${S.cfg.liveFmt === 'ts' ? 'HLS (.m3u8)' : 'MPEG-TS (.ts)'}</button>`,
+    proxy: '<button class="btn acc" data-fx="proxy">Installer le proxy Onda</button>',
+    refresh: '<button class="btn" data-fx="refresh">Actualiser le catalogue</button>',
+    vlc: '<button class="btn" data-fx="vlc">Ouvrir dans VLC</button>',
+    copy: '<button class="btn" data-fx="copy">Copier le lien</button>'
+  })[a]).join('');
+  box.innerHTML = `<h3>${esc(cause)}</h3><p>${esc(expl)}</p><div class="why">${tech.map(esc).join('<br>')}</div><div class="acts">${acts}</div>`;
+  box.onclick = async e => {
+    const b = e.target.closest('[data-fx]'); if (!b) return;
+    const fx = b.dataset.fx;
+    if (fx === 'retry') { box.classList.add('hidden'); startPlayback(cands, live, 0); }
+    else if (fx === 'other') { S.cfg.liveFmt = S.cfg.liveFmt === 'ts' ? 'm3u8' : 'ts'; saveCfg(); toast('Format : ' + (S.cfg.liveFmt === 'ts' ? 'MPEG-TS' : 'HLS')); box.classList.add('hidden'); if (S.P.item) playLive(S.P.item, S.liveCtx); }
+    else if (fx === 'proxy') { closePlayer(); closeModal(); nav('settings'); setTimeout(() => { const g = $('#proxyGuide'); g && g.scrollIntoView({behavior: 'smooth'}); }, 100); }
+    else if (fx === 'refresh') { closePlayer(); try { await loadCatalog(true); toast('Catalogue actualisé'); render(); } catch (er) { toast(er.message, 4000); } }
+    else if (fx === 'vlc') openExternal(url, S.P.title);
+    else if (fx === 'copy') { try { await navigator.clipboard.writeText(url); toast('Lien copié : collez-le dans VLC (Média → Ouvrir un flux réseau)'); } catch { prompt('Copiez ce lien :', url); } }
+  };
+}
+/* Ouvre le flux dans VLC (Android, iPhone/iPad) ou télécharge une playlist .m3u qui s'ouvre dans VLC (ordinateur) */
+function openExternal(url, title) {
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) {
+    const u = new URL(url);
+    location.href = `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=${u.protocol.replace(':', '')};package=org.videolan.vlc;type=video/*;S.title=${encodeURIComponent(title || 'Onda')};end`;
+  } else if (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    location.href = 'vlc-x-callback://x-callback-url/stream?url=' + encodeURIComponent(url);
+  } else {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([`#EXTM3U\n#EXTINF:-1,${title || 'Onda'}\n${url}\n`], {type: 'audio/x-mpegurl'}));
+    a.download = (title || 'onda').replace(/[^\w\- ]+/g, '').trim().slice(0, 40) + '.m3u'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    toast('Playlist téléchargée : ouvrez-la avec VLC', 4000);
+  }
+}
+function syncPlayerPin() {
+  const b = $('#pPin'); if (!b) return;
+  const it = S.P && S.P.pinItem;
+  b.classList.toggle('hidden', !it || !S.idx.has(kk(it)));
+  if (it) { const on = isFav(it); b.classList.toggle('pinned', on); b.title = on ? 'Retirer des favoris' : 'Épingler en favori'; }
+}
+
 function openPlayer(o) {
   S.P = o;
   const pl = $('#player'); pl.classList.remove('hidden'); document.body.classList.add('noscroll');
   $('#pTitle').textContent = o.title; $('#pSub').textContent = o.sub || '';
+  S.P.pinItem = o.pin || (o.item ? o.item : null); syncPlayerPin(); $('#pBuf').innerHTML = '';
   $('#pNext').classList.toggle('hidden', !o.next); $('#pZap').classList.toggle('hidden', !o.live);
   $('#pMenu').classList.add('hidden'); $('#pEpg').innerHTML = '';
   if (!o.live) $('#pList').classList.add('hidden'); else if (!$('#pList').classList.contains('hidden')) drawZap();
@@ -1053,7 +1340,7 @@ function saveProgress(force) {
 }
 
 function playVod(v, resume) {
-  openPlayer({title: v.title, sub: [v.q, catName('vod', v.cat)].filter(Boolean).join(' · '), img: v.img, cands: vodCands(v), key: 'vod:' + v.id, resume,
+  openPlayer({title: v.title, sub: [v.q, catName('vod', v.cat)].filter(Boolean).join(' · '), img: v.img, cands: vodCands(v), key: 'vod:' + v.id, resume, pin: v.k ? repOf(v) : null,
     meta: {type: 'vod', id: v.id, ext: v.ext, url: v.url, title: v.title, img: v.img}});
 }
 function playEp(it, data, s, i) {
@@ -1062,11 +1349,11 @@ function playEp(it, data, s, i) {
   if (i + 1 < list.length) next = () => playEp(it, data, s, i + 1);
   else { const ni = keys.indexOf(String(s)) + 1; if (ni > 0 && ni < keys.length) next = () => playEp(it, data, keys[ni], 0); }
   const sub = `S${s} E${ep.e}`;
-  openPlayer({title: it.title, sub: sub + ' — ' + ep.title, img: it.img, cands: epCands(ep), key: 'ep:' + ep.id, next,
+  openPlayer({title: it.title, sub: sub + ' — ' + ep.title, img: it.img, cands: epCands(ep), key: 'ep:' + ep.id, next, pin: it,
     meta: {type: 'ep', id: ep.id, ext: ep.ext, url: ep.url, sid: it.id, title: it.title, img: it.img, sub, s: String(s)}});
 }
 function playLive(it, ctx) {
-  S.liveCtx = ctx && ctx.length ? ctx : [it];
+  S.liveCtx = ctx && ctx.length ? ctx : pinFirst(byCat('live')[it.cat] || [it]);
   const best = it.vers ? it.vers[0] : it;
   const lr = LS.get('lr_' + S.pid, []).filter(x => x !== it.id); lr.unshift(it.id); LS.set('lr_' + S.pid, lr.slice(0, 20));
   openPlayer({title: it.title, sub: [best.q, catName('live', it.cat)].filter(Boolean).join(' · '), img: it.img, cands: liveCands(best), live: true, item: it});
@@ -1091,7 +1378,7 @@ async function loadEpg(it) {
 }
 function drawZap() {
   const cur = S.P?.item;
-  $('#pItems').innerHTML = S.liveCtx.slice(0, 600).map((c, i) => `<button class="zch${c === cur ? ' on' : ''}" data-z="${i}"><span class="lg">${c.img ? `<img src="${esc(c.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><span>${c.num ? c.num + ' · ' : ''}${esc(c.title)}</span></button>`).join('');
+  $('#pItems').innerHTML = S.liveCtx.slice(0, 600).map((c, i) => `<button class="zch${c === cur ? ' on' : ''}" data-z="${i}">${isFav(c) ? '<span style="color:var(--acc)">📌</span>' : ''}<span class="lg">${c.img ? `<img src="${esc(c.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><span>${c.num ? c.num + ' · ' : ''}${esc(c.title)}</span></button>`).join('');
   const on = $('.zch.on'); on && on.scrollIntoView({block: 'center'});
 }
 function zap(d) {
@@ -1109,7 +1396,9 @@ function showTracks() {
   const v = vid();
   if (v.audioTracks && v.audioTracks.length > 1) { items.push({h: 'Audio'}); [...v.audioTracks].forEach((t, i) => items.push({l: t.label || t.language || 'Piste ' + (i + 1), on: t.enabled, f: () => [...v.audioTracks].forEach((x, j) => (x.enabled = j === i))})); }
   if (v.textTracks && v.textTracks.length && !hls) { items.push({h: 'Sous-titres'}); items.push({l: 'Désactivés', f: () => [...v.textTracks].forEach(t => (t.mode = 'disabled'))}); [...v.textTracks].forEach((t, i) => items.push({l: t.label || t.language || 'Piste ' + (i + 1), on: t.mode === 'showing', f: () => [...v.textTracks].forEach((x, j) => (x.mode = j === i ? 'showing' : 'disabled'))})); }
-  items.push({h: 'Vitesse'}); [0.75, 1, 1.25, 1.5].forEach(r => items.push({l: r + '×', on: v.playbackRate === r, f: () => (v.playbackRate = r)}));
+  if (S.cur) { items.push({h: 'Lecteur externe'}); items.push({l: 'Ouvrir dans VLC', f: () => openExternal(S.cur.url, S.P && S.P.title)}); }
+  items.push({h: 'Tampon de lecture'}); Object.entries(BUF).forEach(([k, b]) => items.push({l: b.label, on: (S.cfg.bufMode || 'equilibre') === k, f: () => setBufMode(k)}));
+  if (!S.P?.live) { items.push({h: 'Vitesse'}); [0.75, 1, 1.25, 1.5].forEach(r => items.push({l: r + '×', on: v.playbackRate === r, f: () => (v.playbackRate = r)})); }
   menu.innerHTML = items.map((x, i) => x.h ? `<div class="h">${x.h}</div>` : `<button data-mi="${i}" class="${x.on ? 'on' : ''}">${x.on ? '✓ ' : ''}${esc(x.l)}</button>`).join('');
   menu.onclick = e => { const b = e.target.closest('[data-mi]'); if (b) { items[+b.dataset.mi].f(); menu.classList.add('hidden'); } };
   menu.classList.toggle('hidden');
@@ -1121,6 +1410,19 @@ function toggleFs() { const p = $('#player'); if (document.fullscreenElement) do
   const v = vid();
   v.addEventListener('timeupdate', () => { if (Date.now() - lastSave > 5000) saveProgress(); });
   v.addEventListener('pause', () => { saveProgress(true); pokeUI(); });
+  v.addEventListener('playing', () => { WD.started = true; WD.refill = false; WD.stallSince = 0; spin(false); pMsg(''); });
+  v.addEventListener('canplay', () => { if (!WD.refill) spin(false); });
+  v.addEventListener('waiting', () => {
+    if (!S.P) return;
+    const B = bufCfg();
+    // Coupure en pleine lecture : on laisse le tampon se remplir avant de reprendre
+    if (WD.started && !v.seeking && B.refill > 0 && !WD.refill) { WD.refill = true; WD.refillSince = Date.now(); v.pause(); spin(true, 'Mise en mémoire tampon…'); }
+    else spin(true, WD.started ? 'Mise en mémoire tampon…' : 'Chargement du flux…');
+  });
+  v.addEventListener('seeked', () => { if (!WD.refill) spin(false); });
+  addEventListener('online', () => { if (S.P && WD.started) { toast('Connexion rétablie'); WD.retries = 0; recover('réseau'); } });
+  addEventListener('offline', () => { if (S.P) toast('Connexion perdue… la lecture continue sur le tampon', 4000); });
+  $('#pPin').onclick = () => { if (S.P?.pinItem) { toggleFav(S.P.pinItem); if (S.P.live && !$('#pList').classList.contains('hidden')) drawZap(); } pokeUI(); };
   v.addEventListener('ended', () => {
     saveProgress(true);
     if (S.P?.key && !S.P.live) { delete S.pdata.prog[S.P.key]; saveP(); }
@@ -1141,11 +1443,13 @@ function toggleFs() { const p = $('#player'); if (document.fullscreenElement) do
 
 /* ---------- Événements globaux ---------- */
 document.addEventListener('click', e => {
+  const pn = e.target.closest('[data-pin]');
+  if (pn && !e.target.closest('#player')) { e.preventDefault(); e.stopPropagation(); const it = S.idx.get(pn.dataset.pin); if (it) { toggleFav(it); if (S.view === 'fav' || (S.view === 'live' && S.ls.cat === 'fav')) render(); } return; }
   if (e.target.closest('#modal, #player, #setup, #profiles')) return;
   const r = e.target.closest('[data-resume]'); if (r) return resume(r.dataset.resume);
   const c = e.target.closest('[data-key]'); if (c) return openItem(S.idx.get(c.dataset.key));
   const mo = e.target.closest('[data-more]');
-  if (mo) { const [k, cat] = mo.dataset.more.split('|'); if (cat) (S.gs[k] ||= {sort: 'recent'}).cat = cat; else if (S.gs[k]) S.gs[k].cat = 'all'; return nav(k); }
+  if (mo) { const [k, cat] = mo.dataset.more.split('|'); if (k === 'live') { S.ls.cat = cat || 'all'; S.ls.f = ''; } else if (cat) (S.gs[k] ||= {sort: 'recent'}).cat = cat; else if (S.gs[k]) S.gs[k].cat = 'all'; return nav(k); }
   const n = e.target.closest('[data-nav]'); if (n) return nav(n.dataset.nav);
   const gc = e.target.closest('[data-gcat]'); if (gc) { S.gs[S.view].cat = gc.dataset.gcat; return render(); }
   const lc = e.target.closest('[data-lcat]'); if (lc) { S.ls.cat = lc.dataset.lcat; S.ls.f = ''; render(); return scrollTo(0, 0); }
@@ -1162,6 +1466,7 @@ document.addEventListener('keydown', e => {
     else if (!S.P.live && e.key === 'ArrowLeft') { e.preventDefault(); v.currentTime -= 10; }
     else if (e.key === 'm') v.muted = !v.muted;
     else if (e.key === 'n' && S.P.next) S.P.next();
+    else if (e.key === 'p' && S.P.pinItem) $('#pPin').click();
     pokeUI(); return;
   }
   if (e.key === 'Escape' && !$('#modal').classList.contains('hidden')) return closeModal();
@@ -1188,6 +1493,7 @@ function afterLoad() {
 (async function boot() {
   buildShell();
   if (!configured()) return showSetup();
+  if (S.cfg.proxy && !S.cfg.proxyKind) detectProxy();
   try { await loadCatalog(false); afterLoad(); }
   catch (e) { showSetup(e.message); }
 })();
